@@ -1,0 +1,17 @@
+{
+    "name": "Hearthwood.Audio",
+    "rootNamespace": "Hearthwood.Audio",
+    "references": [
+        "Hearthwood.Core",
+        "Hearthwood.Player"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

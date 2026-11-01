@@ -1,0 +1,19 @@
+{
+    "name": "Hearthwood.NPC",
+    "rootNamespace": "Hearthwood.NPC",
+    "references": [
+        "Hearthwood.Core",
+        "Hearthwood.Dialogue",
+        "Hearthwood.Quest",
+        "Hearthwood.Player"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

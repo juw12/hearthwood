@@ -1,0 +1,22 @@
+{
+    "name": "Hearthwood.EditorTools",
+    "rootNamespace": "Hearthwood.EditorTools",
+    "references": [
+        "Hearthwood.Core",
+        "Hearthwood.Quest",
+        "Hearthwood.Dialogue",
+        "Hearthwood.NPC",
+        "Hearthwood.Collectible"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

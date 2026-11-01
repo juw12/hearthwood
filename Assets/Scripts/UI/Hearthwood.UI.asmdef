@@ -1,0 +1,23 @@
+{
+    "name": "Hearthwood.UI",
+    "rootNamespace": "Hearthwood.UI",
+    "references": [
+        "Hearthwood.Core",
+        "Hearthwood.Input",
+        "Hearthwood.Player",
+        "Hearthwood.Quest",
+        "Hearthwood.Dialogue",
+        "Hearthwood.NPC",
+        "Hearthwood.Audio",
+        "Unity.InputSystem"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -1,0 +1,18 @@
+{
+    "name": "Hearthwood.Collectible",
+    "rootNamespace": "Hearthwood.Collectible",
+    "references": [
+        "Hearthwood.Core",
+        "Hearthwood.Player",
+        "Hearthwood.Quest"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
