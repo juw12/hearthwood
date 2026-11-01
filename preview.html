@@ -1,0 +1,1116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hearthwood — A Medieval Village Prototype</title>
+<style>
+  :root{
+    --parchment:#f4e9d2;
+    --ink:#2b1d0e;
+    --accent:#8b2c1a;
+    --gold:#b8860b;
+    --parch-dark:#dcc999;
+    --wood:#5a3d20;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; height:100%; }
+  body{
+    font-family: Georgia, 'Times New Roman', serif;
+    color: var(--ink);
+    background:
+      radial-gradient(circle at 18% 22%, rgba(0,0,0,0.04) 0, transparent 42%),
+      radial-gradient(circle at 82% 62%, rgba(0,0,0,0.05) 0, transparent 38%),
+      radial-gradient(circle at 50% 85%, rgba(139,44,26,0.05) 0, transparent 42%),
+      var(--parchment);
+    display:grid; place-items:center;
+    overflow:hidden;
+    user-select:none;
+  }
+  body::before{
+    content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
+    box-shadow: inset 0 0 160px 30px rgba(43,29,14,0.35);
+  }
+  .hidden{ display:none !important; }
+
+  /* ---------- falling leaves ---------- */
+  #leaves{ position:fixed; inset:0; overflow:hidden; pointer-events:none; z-index:15; }
+  .leaf{ position:absolute; top:-40px; animation:fall linear forwards; will-change:transform; }
+  .leaf::before{
+    content:''; display:block; width:100%; height:100%;
+    border-radius:0 72% 0 72%;
+    box-shadow: inset -2px -2px 3px rgba(0,0,0,0.28), inset 2px 2px 2px rgba(255,255,255,0.18);
+    transform: rotate(45deg);
+  }
+  @keyframes fall{
+    0%{ transform: translate(0,-40px) rotate(0deg); }
+    100%{ transform: translate(var(--sway,0px), 110vh) rotate(var(--spin,540deg)); }
+  }
+
+  /* ---------- scene ---------- */
+  #app{
+    position:relative; z-index:1;
+    width:min(1180px,96vw); height:min(740px,92vh);
+    display:grid; grid-template-columns:1fr; grid-template-rows:1fr;
+  }
+  #scene{ grid-area:1/1; padding:14px; }
+  #map-frame{
+    width:100%; height:100%; border:6px solid var(--wood); border-radius:10px; overflow:hidden;
+    box-shadow: inset 0 0 46px rgba(43,29,14,0.45), 0 12px 34px rgba(0,0,0,0.30);
+    background: var(--parchment);
+    cursor:crosshair;
+  }
+  #worldmap{ width:100%; height:100%; display:block; }
+  .poi-label{
+    font-family:Georgia,'Times New Roman',serif; font-size:17px; font-weight:bold; fill:#3a2a16;
+    letter-spacing:0.5px; paint-order:stroke; stroke:var(--parchment); stroke-width:3px; stroke-linejoin:round;
+  }
+  .dot-player{ fill:#c0392b; }
+  .dot-player-ring{ fill:none; stroke:#c0392b; stroke-width:2; opacity:0.55; }
+  .dot-herb{ fill:#4a8f27; stroke:var(--ink); stroke-width:1.2; }
+  .dot-wolf{ fill:#6b5b4a; stroke:var(--ink); stroke-width:1.2; }
+
+  /* ---------- HUD ---------- */
+  #hud{ position:fixed; inset:0; z-index:20; pointer-events:none; }
+  .hud-cluster{ position:absolute; pointer-events:auto; }
+  .hud-topleft{ top:16px; left:16px; display:flex; align-items:center; gap:10px; }
+  .hud-topright{ top:16px; right:16px; display:flex; align-items:center; gap:10px; }
+  .ic{ width:22px; height:22px; display:block; }
+  .hpbar{
+    position:relative; width:210px; height:22px; background:rgba(43,29,14,0.4);
+    border:2px solid var(--ink); border-radius:12px; overflow:hidden;
+  }
+  #hpfill{ height:100%; width:100%; background:linear-gradient(#d0543b,var(--accent)); transition:width .3s ease; }
+  #hptext{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-size:13px; font-weight:bold; color:var(--parchment); text-shadow:0 1px 2px #000;
+  }
+  .favor{
+    display:flex; align-items:center; gap:7px; font-weight:bold; color:#3a2a16;
+    background:rgba(244,233,210,0.85); padding:4px 14px; border:2px solid var(--ink); border-radius:14px;
+  }
+  .favor .ic{ width:20px; height:20px; }
+  #muteBtn{
+    width:38px; height:38px; border-radius:50%; border:2px solid var(--ink);
+    background:rgba(244,233,210,0.85); cursor:pointer; display:grid; place-items:center;
+  }
+  #muteBtn:hover{ background:var(--parchment); }
+  #muteBtn .ic{ width:20px; height:20px; }
+  #muteBtn.muted{ opacity:0.55; }
+
+  .hud-bottom{
+    position:absolute; left:50%; bottom:22px; transform:translateX(-50%);
+    display:flex; flex-direction:column; align-items:center; gap:10px; pointer-events:none;
+  }
+  .prompt{
+    font-size:15px; font-weight:bold; color:var(--parchment); background:rgba(43,29,14,0.78);
+    padding:6px 16px; border-radius:16px; border:2px solid var(--gold);
+    transition:opacity .15s; white-space:nowrap;
+  }
+  .quest{
+    font-size:15px; color:#3a2a16; background:rgba(244,233,210,0.92);
+    padding:7px 18px; border:2px solid var(--ink); border-left:5px solid var(--accent);
+    border-radius:8px; box-shadow:0 3px 10px rgba(0,0,0,0.2); white-space:nowrap;
+  }
+  .quest b{ color:var(--accent); }
+
+  /* ---------- minimap ---------- */
+  .minimap{
+    position:absolute; top:66px; right:16px; width:186px; pointer-events:none;
+    background:var(--parchment); border:3px solid var(--wood); border-radius:6px;
+    box-shadow:0 4px 14px rgba(0,0,0,0.32); overflow:hidden;
+  }
+  .minimap .mm-title{
+    font-size:10px; text-align:center; padding:3px; letter-spacing:2px; text-transform:uppercase;
+    color:#3a2a16; font-weight:bold; background:rgba(43,29,14,0.15);
+  }
+  #minimapsvg{ width:100%; height:auto; aspect-ratio:800 / 600; display:block; }
+  #minimapsvg .poi-label{ font-size:34px; }
+  #minimapsvg .dot-player-ring{ stroke-width:5; }
+
+  /* ---------- overlays & panels ---------- */
+  .overlay{
+    position:fixed; inset:0; z-index:50; display:grid; place-items:center; padding:20px;
+  }
+  .overlay::before{ content:''; position:absolute; inset:0; background:rgba(43,29,14,0.45); }
+  .overlay.dialogue::before{ background:rgba(43,29,14,0.30); }
+  #pause::before, #questlog::before, #inventory::before{ backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px); }
+
+  .panel{
+    position:relative; background:
+      radial-gradient(circle at 50% 0%, rgba(255,255,255,0.25), transparent 60%),
+      linear-gradient(var(--parchment), var(--parch-dark));
+    border:3px double var(--ink); border-radius:10px;
+    box-shadow:0 14px 40px rgba(0,0,0,0.4), inset 0 0 0 4px rgba(184,134,11,0.25);
+    color:var(--ink);
+  }
+  .panel::after{
+    content:''; position:absolute; inset:6px; border:1px solid rgba(184,134,11,0.4);
+    border-radius:6px; pointer-events:none;
+  }
+  .panel h2{
+    margin:0 0 14px; text-align:center; font-size:26px; letter-spacing:2px; text-transform:uppercase;
+    color:var(--accent); border-bottom:2px solid rgba(43,29,14,0.25); padding-bottom:8px;
+  }
+  .panel-hint{ margin-top:14px; text-align:center; font-size:12px; color:#6b5334; font-style:italic; }
+
+  /* dialogue */
+  .dialogue-panel{ width:min(560px,94vw); padding:26px 30px; }
+  .dialogue-head{ display:flex; align-items:center; gap:16px; margin-bottom:16px; }
+  #portrait{ width:74px; height:74px; flex:none; border-radius:50%; overflow:hidden; border:3px solid var(--gold); box-shadow:0 3px 8px rgba(0,0,0,0.3); }
+  .portrait-svg{ width:100%; height:100%; display:block; }
+  #speaker{ font-size:20px; font-weight:bold; color:var(--accent); letter-spacing:0.5px; }
+  #dlgText{ font-size:17px; line-height:1.6; min-height:74px; }
+  #choices{ display:flex; flex-direction:column; gap:8px; margin-top:14px; }
+  .choice{
+    text-align:left; font-family:inherit; font-size:15px; color:var(--ink);
+    background:rgba(244,233,210,0.7); border:2px solid var(--ink); border-radius:8px;
+    padding:9px 14px; cursor:pointer; display:flex; align-items:center; gap:10px; transition:all .12s;
+  }
+  .choice:hover{ background:var(--parchment); border-color:var(--accent); transform:translateX(3px); }
+  .choice .num{
+    flex:none; width:22px; height:22px; border-radius:50%; background:var(--accent); color:var(--parchment);
+    display:grid; place-items:center; font-size:13px; font-weight:bold;
+  }
+  #dlgHint{ margin-top:16px; text-align:center; font-size:12px; color:#6b5334; font-style:italic; }
+
+  /* quest log */
+  .wide-panel{ width:min(680px,94vw); max-height:86vh; overflow:auto; padding:24px 30px; }
+  .qlist-title{ font-size:15px; text-transform:uppercase; letter-spacing:1.5px; color:var(--accent); margin:14px 0 8px; border-bottom:1px solid rgba(43,29,14,0.2); }
+  .qcard{ background:rgba(244,233,210,0.55); border:1.5px solid rgba(43,29,14,0.3); border-radius:8px; padding:12px 16px; margin-bottom:10px; }
+  .qcard.done{ opacity:0.7; }
+  .qtitle{ font-size:17px; font-weight:bold; color:var(--ink); }
+  .qcard.done .qtitle{ text-decoration:line-through; }
+  .qdesc{ font-size:14px; font-style:italic; color:#4a3820; margin:4px 0 8px; }
+  .objs{ margin:0; padding-left:0; list-style:none; }
+  .objs li{ font-size:14px; display:flex; justify-content:space-between; gap:10px; padding:2px 0; }
+  .objs li.done{ color:#3a6b2a; }
+  .objs li.done::before{ content:'✓ '; }
+  .obj-prog{ font-weight:bold; color:var(--accent); }
+  .qreward{ margin-top:6px; font-size:13px; color:#6b5334; }
+  .empty{ color:#6b5334; font-style:italic; font-size:14px; margin:6px 0; }
+
+  /* inventory */
+  .inv-panel{ width:min(560px,94vw); padding:24px 30px; }
+  #invGrid{
+    display:grid; grid-template-columns:repeat(5,1fr); gap:10px; margin:6px 0 10px;
+  }
+  .slot{
+    position:relative; aspect-ratio:1; border:2px solid var(--ink); border-radius:8px;
+    background:rgba(43,29,14,0.10); box-shadow:inset 0 2px 6px rgba(0,0,0,0.2);
+    display:grid; place-items:center; cursor:default;
+  }
+  .slot[data-id]{ cursor:pointer; }
+  .slot[data-id]:hover{ border-color:var(--accent); background:rgba(139,44,26,0.12); }
+  .slot-icon{ width:70%; height:70%; display:block; }
+  .slot-icon .ic{ width:100%; height:100%; }
+  .slot-count{
+    position:absolute; right:4px; bottom:2px; font-size:13px; font-weight:bold;
+    color:var(--parchment); text-shadow:0 1px 2px #000;
+  }
+  .tooltip{
+    position:fixed; z-index:210; transform:translate(-50%,-100%); pointer-events:none;
+    background:var(--ink); color:var(--parchment); padding:9px 13px; border-radius:8px;
+    border:2px solid var(--gold); box-shadow:0 6px 16px rgba(0,0,0,0.4); max-width:230px;
+    opacity:0; transition:opacity .1s;
+  }
+  .tooltip.show{ opacity:1; }
+  .tip-name{ font-weight:bold; color:var(--gold); font-size:15px; }
+  .tip-desc{ font-size:13px; margin-top:3px; line-height:1.4; }
+
+  /* pause */
+  .pause-panel{ width:min(360px,92vw); padding:30px; }
+  .pause-menu{ display:flex; flex-direction:column; gap:10px; }
+  .pause-menu button{
+    font-family:inherit; font-size:17px; letter-spacing:1px; color:var(--ink);
+    background:rgba(244,233,210,0.7); border:2px solid var(--ink); border-radius:8px;
+    padding:11px; cursor:pointer; transition:all .12s;
+  }
+  .pause-menu button:hover{ background:var(--accent); color:var(--parchment); border-color:var(--accent); }
+
+  /* ---------- title screen ---------- */
+  #title{
+    position:fixed; inset:0; z-index:100; display:grid; place-items:center;
+    background:
+      radial-gradient(circle at 50% 30%, rgba(184,134,11,0.10), transparent 55%),
+      radial-gradient(circle at 18% 22%, rgba(0,0,0,0.05) 0, transparent 42%),
+      radial-gradient(circle at 82% 70%, rgba(0,0,0,0.06) 0, transparent 40%),
+      linear-gradient(var(--parchment), var(--parch-dark));
+  }
+  .title-inner{ text-align:center; padding:20px; }
+  .emblem{ width:96px; height:96px; filter:drop-shadow(0 4px 8px rgba(0,0,0,0.25)); }
+  #title h1{
+    margin:14px 0 4px; font-size:clamp(48px,10vw,96px); letter-spacing:10px; font-weight:bold;
+    color:var(--ink); text-shadow:0 3px 0 rgba(184,134,11,0.5), 0 6px 14px rgba(0,0,0,0.25);
+  }
+  .title-divider{ display:flex; align-items:center; justify-content:center; gap:12px; margin:8px auto 14px; }
+  .title-divider .line{ width:min(180px,30vw); height:2px; background:linear-gradient(90deg,transparent,var(--gold)); }
+  .title-divider .line:last-child{ background:linear-gradient(90deg,var(--gold),transparent); }
+  .title-divider .dm{ width:14px; height:14px; }
+  .tagline{ font-size:19px; font-style:italic; color:#5a4326; margin:0 0 26px; letter-spacing:1px; }
+  #nameInput{
+    font-family:inherit; font-size:16px; text-align:center; color:var(--ink);
+    background:rgba(244,233,210,0.7); border:2px solid var(--ink); border-radius:8px;
+    padding:9px 14px; width:min(260px,70vw); margin-bottom:20px; outline:none;
+  }
+  #nameInput:focus{ border-color:var(--accent); box-shadow:0 0 0 3px rgba(139,44,26,0.2); }
+  .name-hint{ font-size:12px; color:#6b5334; font-style:italic; margin:-12px 0 20px; }
+  #beginBtn{
+    font-family:inherit; font-size:22px; letter-spacing:2px; text-transform:uppercase;
+    color:var(--parchment); background:linear-gradient(#a3391f,var(--accent));
+    border:3px solid var(--ink); border-radius:10px; padding:14px 44px; cursor:pointer;
+    box-shadow:0 6px 0 var(--wood), 0 10px 20px rgba(0,0,0,0.3); transition:all .1s;
+  }
+  #beginBtn:hover{ filter:brightness(1.08); transform:translateY(-1px); box-shadow:0 7px 0 var(--wood),0 12px 22px rgba(0,0,0,0.32); }
+  #beginBtn:active{ transform:translateY(4px); box-shadow:0 2px 0 var(--wood); }
+  #newBtn{
+    display:block; margin:14px auto 0; font-family:inherit; font-size:14px; color:#5a4326;
+    background:none; border:none; border-bottom:1px dashed #8a6f48; cursor:pointer; padding:2px 6px;
+  }
+  .title-controls{ margin-top:34px; font-size:13px; color:#6b5334; line-height:1.7; letter-spacing:0.5px; }
+  .title-controls b{ color:var(--accent); }
+
+  /* ---------- toast ---------- */
+  #toast{
+    position:fixed; top:78px; left:50%; transform:translateX(-50%) translateY(-14px);
+    z-index:200; background:var(--ink); color:var(--parchment); padding:11px 24px;
+    border:2px solid var(--gold); border-radius:10px; font-size:16px; font-weight:bold;
+    box-shadow:0 8px 24px rgba(0,0,0,0.4); opacity:0; pointer-events:none; transition:all .3s ease;
+    max-width:80vw; text-align:center;
+  }
+  #toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+  <div id="leaves" aria-hidden="true"></div>
+
+  <div id="app">
+    <main id="scene">
+      <div id="map-frame">
+        <svg id="worldmap" viewBox="0 0 800 600" preserveAspectRatio="xMidYMid meet">
+          <g class="pois"></g>
+          <g class="dots"></g>
+        </svg>
+      </div>
+    </main>
+  </div>
+
+  <div id="hud" class="hidden">
+    <div class="hud-cluster hud-topleft">
+      <span id="heartIcon"></span>
+      <div class="hpbar"><div id="hpfill"></div><span id="hptext">100 / 100</span></div>
+    </div>
+    <div class="hud-cluster hud-topright">
+      <button id="muteBtn" title="Mute"><span id="muteIcon"></span></button>
+      <span class="favor"><span id="coinIcon"></span><span id="favortext">0</span>&nbsp;favor</span>
+    </div>
+    <div id="minimap" class="minimap">
+      <div class="mm-title">Hearthwood</div>
+      <svg id="minimapsvg" viewBox="0 0 800 600" preserveAspectRatio="xMidYMid meet">
+        <g class="pois"></g>
+        <g class="dots"></g>
+      </svg>
+    </div>
+    <div class="hud-bottom">
+      <div id="prompt" class="prompt"></div>
+      <div id="quest" class="quest"></div>
+    </div>
+  </div>
+
+  <div id="dialogue" class="overlay dialogue hidden">
+    <div class="panel dialogue-panel">
+      <div class="dialogue-head">
+        <div id="portrait"></div>
+        <div id="speaker"></div>
+      </div>
+      <div id="dlgText"></div>
+      <div id="choices"></div>
+      <div id="dlgHint">Press Space to continue</div>
+    </div>
+  </div>
+
+  <div id="questlog" class="overlay hidden">
+    <div class="panel wide-panel">
+      <h2>Quest Log</h2>
+      <div class="qlist-title">Active Quests</div>
+      <div id="activeQ"></div>
+      <div class="qlist-title">Completed Quests</div>
+      <div id="completedQ"></div>
+      <div class="panel-hint">Press Tab or Esc to close</div>
+    </div>
+  </div>
+
+  <div id="inventory" class="overlay hidden">
+    <div class="panel inv-panel">
+      <h2>Inventory</h2>
+      <div id="invGrid"></div>
+      <div class="panel-hint">Click a potion to drink it &middot; Press I or Esc to close</div>
+    </div>
+  </div>
+
+  <div id="pause" class="overlay hidden">
+    <div class="panel pause-panel">
+      <h2>Paused</h2>
+      <div class="pause-menu" id="pauseMenu">
+        <button data-action="resume">Resume</button>
+        <button data-action="save">Save</button>
+        <button data-action="load">Load</button>
+        <button data-action="quit">Quit</button>
+      </div>
+      <div class="panel-hint">Press Esc to resume</div>
+    </div>
+  </div>
+
+  <div id="title">
+    <div class="title-inner">
+      <div id="emblem"></div>
+      <h1>HEARTHWOOD</h1>
+      <div class="title-divider"><span class="line"></span><svg class="dm" viewBox="0 0 10 10"><rect x="2.2" y="2.2" width="5.6" height="5.6" transform="rotate(45 5 5)" fill="#b8860b"/></svg><span class="line"></span></div>
+      <p class="tagline">A medieval village prototype</p>
+      <input id="nameInput" value="Wanderer" maxlength="16" spellcheck="false" aria-label="Your name">
+      <div class="name-hint">your name, adventurer</div>
+      <button id="beginBtn">Begin Adventure</button>
+      <button id="newBtn" class="hidden">Start a New Game</button>
+    </div>
+    <div class="title-controls">
+      <b>WASD / Arrows</b> move &middot; <b>E</b> interact &middot; <b>Space</b> dialogue &middot;
+      <b>1&ndash;4</b> choices &middot; <b>Tab</b> quests &middot; <b>I</b> inventory &middot;
+      <b>M</b> map &middot; <b>Esc</b> pause
+    </div>
+  </div>
+
+  <div id="toast"></div>
+  <div id="invTip" class="tooltip"></div>
+
+<script>
+'use strict';
+
+/* ============================================================ *
+ *  Constants & data
+ * ============================================================ */
+const SAVE_KEY = 'hearthwood.preview.v1';
+const RANGE = 72;
+const SPEED = 200;
+
+const ICON = {
+  heart:  '<svg class="ic" viewBox="0 0 24 24"><path d="M12 21s-7-4.35-9.5-8.5C1 9 3 5 6.5 5 9 5 12 8 12 8s3-3 5.5-3C21 5 23 9 21.5 12.5 19 16.65 12 21 12 21z" fill="#8b2c1a"/></svg>',
+  coin:   '<svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#b8860b" stroke="#8a6508" stroke-width="1.5"/><circle cx="12" cy="12" r="6" fill="none" stroke="#f4e9d2" stroke-width="1.5" opacity="0.7"/><path d="M12 8v8M9.5 10h5" stroke="#8a6508" stroke-width="1.5"/></svg>',
+  sword:  '<svg class="ic" viewBox="0 0 24 24"><path d="M20 4l-1 1-4 2-9 9-1 3 3-1 9-9 2-4 1-1z" fill="#cdd2d6" stroke="#2b1d0e" stroke-width="1.2"/><rect x="4.5" y="15" width="5" height="5" transform="rotate(45 7 17.5)" fill="#8a6508" stroke="#2b1d0e" stroke-width="1"/></svg>',
+  herb:   '<svg class="ic" viewBox="0 0 24 24"><path d="M12 21c0-6 0-9 0-11" stroke="#3f7a34" stroke-width="2" fill="none"/><path d="M12 10C8 10 5 7 5 3c4 0 7 3 7 7z" fill="#5aa02c"/><path d="M12 13c4 0 7-3 7-7-4 0-7 3-7 7z" fill="#4a8f27"/></svg>',
+  wood:   '<svg class="ic" viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="8" rx="2" fill="#9c6b3f" stroke="#2b1d0e" stroke-width="1.4"/><ellipse cx="4" cy="12" rx="2.4" ry="4" fill="#c79a63" stroke="#2b1d0e" stroke-width="1"/></svg>',
+  potion: '<svg class="ic" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="3" fill="#8a6508"/><path d="M10 5h4v3l3 8a4 4 0 01-4 5h-2a4 4 0 01-4-5l3-8V5z" fill="#7b3f9a" stroke="#2b1d0e" stroke-width="1.4"/><path d="M9 14c1.5 1 4.5 1 6 0" stroke="#f4e9d2" stroke-width="1.2" fill="none" opacity="0.6"/></svg>',
+  soundOn: '<svg class="ic" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="#2b1d0e"/><path d="M16 8a5 5 0 010 8" stroke="#2b1d0e" stroke-width="2" fill="none"/></svg>',
+  soundOff:'<svg class="ic" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="#2b1d0e"/><path d="M16 9l6 6M22 9l-6 6" stroke="#8b2c1a" stroke-width="2" fill="none"/></svg>'
+};
+
+const EMBLEM = '<svg class="emblem" viewBox="0 0 100 100"><path d="M28 74h44" stroke="#8b2c1a" stroke-width="4" stroke-linecap="round"/><path d="M50 14C38 34 30 44 30 58a20 20 0 0040 0C70 44 62 34 50 14z" fill="#c0562b" stroke="#8b2c1a" stroke-width="2.5"/><path d="M50 40C44 50 42 56 42 62a8 8 0 0016 0C58 56 56 50 50 40z" fill="#f2c14e"/></svg>';
+
+const ITEMS = {
+  herb:   { name:'Wild Herb',    desc:'A fragrant medicinal herb, prized for winter tinctures.', icon:'herb' },
+  wood:   { name:'Wood',         desc:'Sturdy timber felled from the forest edge.', icon:'wood' },
+  potion: { name:'Health Potion',desc:'Restores 30 health when drunk.', icon:'potion' },
+  sword:  { name:'Iron Sword',   desc:'Forged by Bron. Lets you fight wolves without injury.', icon:'sword' },
+  coin:   { name:'Coin',         desc:'A gleaming gold coin. Spend it on mead, perhaps.', icon:'coin' }
+};
+
+const ENTITIES = {
+  npcs: [
+    { id:'bron', name:'Bron the Blacksmith', x:600, y:130, color:'#8b5a2b' },
+    { id:'mara', name:'Mara the Innkeeper',  x:150, y:150, color:'#6b4c9a' }
+  ],
+  herbs: [
+    { id:'h1', x:632, y:466 }, { id:'h2', x:660, y:446 }, { id:'h3', x:690, y:472 },
+    { id:'h4', x:652, y:500 }, { id:'h5', x:704, y:450 }
+  ],
+  wolves: [
+    { id:'w1', x:118, y:468 }, { id:'w2', x:160, y:452 }, { id:'w3', x:140, y:500 }
+  ]
+};
+
+const QUEST_DEFS = {
+  gatherHerbs: {
+    id:'gatherHerbs', title:'Gather Wild Herbs',
+    description:'Bron needs 5 wild herbs from the patch to the south-east for his winter tinctures.',
+    giver:'Bron the Blacksmith',
+    objectives:[ { id:'herbs', label:'Collect wild herbs', target:5, unit:'herbs collected' } ],
+    reward:{ favor:5, items:[] }
+  },
+  deliverMessage: {
+    id:'deliverMessage', title:'Deliver a Message',
+    description:'Mara cannot leave the inn. Carry her message to the market steward for her.',
+    giver:'Mara the Innkeeper',
+    objectives:[ { id:'talk', label:'Talk to the Innkeeper', target:1, unit:'message delivered' } ],
+    reward:{ favor:3, items:[] }
+  },
+  banditProblem: {
+    id:'banditProblem', title:'The Bandit Problem',
+    description:'Wolves have taken to the forest edge. Drive off 3 of them to keep the village safe.',
+    giver:'Bron the Blacksmith',
+    objectives:[ { id:'wolves', label:'Defeat wolves', target:3, unit:'wolves defeated' } ],
+    reward:{ favor:10, items:['sword'] }
+  }
+};
+const ORDER = ['gatherHerbs', 'deliverMessage', 'banditProblem'];
+
+const POI_SVG =
+'<defs>' +
+'  <radialGradient id="ground" cx="50%" cy="45%" r="78%">' +
+'    <stop offset="0%" stop-color="#e9dcb8"/><stop offset="70%" stop-color="#dcc999"/><stop offset="100%" stop-color="#cdb987"/>' +
+'  </radialGradient>' +
+'  <radialGradient id="meadow" cx="50%" cy="50%" r="50%">' +
+'    <stop offset="0%" stop-color="#b7c98a"/><stop offset="100%" stop-color="#b7c98a" stop-opacity="0"/>' +
+'  </radialGradient>' +
+'</defs>' +
+'<rect x="0" y="0" width="800" height="600" fill="url(#ground)"/>' +
+'<ellipse cx="400" cy="300" rx="240" ry="180" fill="url(#meadow)" opacity="0.5"/>' +
+'<ellipse cx="665" cy="470" rx="120" ry="92" fill="url(#meadow)" opacity="0.6"/>' +
+'<ellipse cx="150" cy="470" rx="140" ry="104" fill="#9db06e" opacity="0.30"/>' +
+'<g stroke="#8a7a4a" stroke-width="5" fill="none" stroke-linecap="round" stroke-dasharray="1 11" opacity="0.45">' +
+'  <path d="M150 165 L400 300 L600 145"/><path d="M400 300 L665 470"/><path d="M400 300 L150 470"/>' +
+'</g>' +
+'<circle cx="400" cy="300" r="46" fill="#e2d0a6" stroke="#8a7a4a" stroke-width="2" opacity="0.85"/>' +
+'<circle cx="400" cy="300" r="30" fill="none" stroke="#8a7a4a" stroke-width="1.5" stroke-dasharray="4 4" opacity="0.5"/>' +
+'<g transform="translate(150,150)">' +
+'  <rect x="-52" y="-20" width="104" height="58" fill="#b5824a" stroke="#2b1d0e" stroke-width="2.5"/>' +
+'  <path d="M-62 -20 L0 -62 L62 -20 Z" fill="#8b2c1a" stroke="#2b1d0e" stroke-width="2.5"/>' +
+'  <rect x="-14" y="8" width="28" height="32" fill="#5a3d20" stroke="#2b1d0e" stroke-width="2"/>' +
+'  <rect x="-38" y="0" width="18" height="18" fill="#e8d6b0" stroke="#2b1d0e" stroke-width="1.5"/>' +
+'  <rect x="20" y="0" width="18" height="18" fill="#e8d6b0" stroke="#2b1d0e" stroke-width="1.5"/>' +
+'  <text y="60" text-anchor="middle" class="poi-label">Tavern</text>' +
+'</g>' +
+'<g transform="translate(600,130)">' +
+'  <rect x="-52" y="-18" width="104" height="56" fill="#9c6b3f" stroke="#2b1d0e" stroke-width="2.5"/>' +
+'  <path d="M-62 -18 L0 -58 L62 -18 Z" fill="#6b4c2a" stroke="#2b1d0e" stroke-width="2.5"/>' +
+'  <rect x="-12" y="6" width="24" height="30" fill="#3a2a16" stroke="#2b1d0e" stroke-width="2"/>' +
+'  <circle cx="30" cy="26" r="9" fill="#c0562b" opacity="0.85"/>' +
+'  <text y="60" text-anchor="middle" class="poi-label">Blacksmith</text>' +
+'</g>' +
+'<g transform="translate(665,470)">' +
+'  <ellipse cx="0" cy="0" rx="96" ry="64" fill="#7fa05a" opacity="0.45" stroke="#5a7a3a" stroke-width="2" stroke-dasharray="5 5"/>' +
+'  <text y="-72" text-anchor="middle" class="poi-label">Herb Patch</text>' +
+'</g>' +
+'<g transform="translate(150,470)">' +
+'  <g fill="#4a6b34" stroke="#2f4a24" stroke-width="1.5">' +
+'    <path d="M-70 -10 L-50 -55 L-30 -10 Z"/><path d="M-30 -18 L-10 -66 L10 -18 Z"/>' +
+'    <path d="M10 -12 L30 -58 L50 -12 Z"/><path d="M44 -16 L64 -62 L84 -16 Z"/>' +
+'  </g>' +
+'  <rect x="-92" y="6" width="184" height="7" fill="#5a3d20" opacity="0.5"/>' +
+'  <text y="42" text-anchor="middle" class="poi-label">Forest Edge</text>' +
+'</g>';
+
+function portraitSVG(color){
+  return '<svg class="portrait-svg" viewBox="0 0 100 100">' +
+    '<circle cx="50" cy="50" r="48" fill="#e8d6b0" stroke="#2b1d0e" stroke-width="3"/>' +
+    '<path d="M50 12C20 12 14 40 16 62L30 62C28 40 34 24 50 24C66 24 72 40 70 62L84 62C86 40 80 12 50 12Z" fill="' + color + '" stroke="#2b1d0e" stroke-width="2"/>' +
+    '<ellipse cx="50" cy="58" rx="23" ry="25" fill="#e8c9a0"/>' +
+    '<circle cx="42" cy="56" r="3" fill="#2b1d0e"/><circle cx="58" cy="56" r="3" fill="#2b1d0e"/>' +
+    '<path d="M44 70Q50 75 56 70" stroke="#2b1d0e" stroke-width="2" fill="none"/>' +
+  '</svg>';
+}
+
+/* ============================================================ *
+ *  State
+ * ============================================================ */
+function defaultState(){
+  return {
+    mode:'TITLE', hp:100, favor:0, playerName:'Wanderer', muted:false,
+    player:{ x:400, y:300, tx:null, ty:null },
+    quests:{
+      gatherHerbs:   { status:'active',  progress:{ herbs:0 } },
+      deliverMessage:{ status:'locked',  progress:{ talk:0 } },
+      banditProblem: { status:'locked',  progress:{ wolves:0 } }
+    },
+    inventory:[
+      { id:'wood',   ...ITEMS.wood,   count:3 },
+      { id:'potion', ...ITEMS.potion, count:1 },
+      { id:'coin',   ...ITEMS.coin,   count:2 }
+    ],
+    gotHerbs:[], gotWolves:[]
+  };
+}
+let state = defaultState();
+let dialogue = null;
+
+/* ============================================================ *
+ *  DOM references
+ * ============================================================ */
+const el = {};
+['leaves','title','scene','hud','worldmap','minimap','minimapsvg','hpfill','hptext','favortext','muteBtn',
+ 'prompt','quest','dialogue','portrait','speaker','dlgText','choices','dlgHint','questlog',
+ 'activeQ','completedQ','inventory','invGrid','invTip','pause','pauseMenu','toast','beginBtn',
+ 'newBtn','nameInput','emblem','heartIcon','coinIcon','muteIcon'].forEach(id => el[id] = document.getElementById(id));
+const worldDots = document.querySelector('#worldmap .dots');
+const miniDots  = document.querySelector('#minimapsvg .dots');
+el.heartIcon.innerHTML = ICON.heart;
+el.coinIcon.innerHTML  = ICON.coin;
+document.querySelector('#worldmap .pois').innerHTML = POI_SVG;
+document.querySelector('#minimapsvg .pois').innerHTML = POI_SVG;
+el.emblem.innerHTML = EMBLEM;
+
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+/* ============================================================ *
+ *  Audio (WebAudio, synthesized)
+ * ============================================================ */
+const AudioSys = {
+  ctx:null,
+  ensure(){
+    if(!this.ctx){ try{ this.ctx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} }
+    if(this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+  },
+  tone(freq, t0, dur, type, gain){
+    if(!this.ctx || state.muted) return;
+    const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+    o.type = type; o.frequency.value = freq; o.connect(g); g.connect(this.ctx.destination);
+    const t = this.ctx.currentTime + t0;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(gain, t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.start(t); o.stop(t + dur + 0.03);
+  },
+  coin(){ this.ensure(); this.tone(880,0,0.12,'square',0.10); this.tone(1318,0.08,0.16,'square',0.09); },
+  hurt(){ this.ensure(); this.tone(200,0,0.20,'sawtooth',0.12); this.tone(120,0.05,0.25,'sawtooth',0.10); },
+  fanfare(){ this.ensure(); [523.25,659.25,783.99,1046.5].forEach((f,i)=>this.tone(f,i*0.12,0.30,'triangle',0.13)); }
+};
+
+/* ============================================================ *
+ *  Toast queue
+ * ============================================================ */
+let toastQueue = [], toastBusy = false;
+function toast(msg){
+  toastQueue.push(msg);
+  if(!toastBusy) nextToast();
+}
+function nextToast(){
+  const m = toastQueue.shift();
+  if(m == null){ toastBusy = false; el.toast.classList.remove('show'); return; }
+  toastBusy = true;
+  el.toast.textContent = m;
+  el.toast.classList.add('show');
+  clearTimeout(el.toast._t);
+  el.toast._t = setTimeout(nextToast, 1900);
+}
+
+/* ============================================================ *
+ *  Items
+ * ============================================================ */
+function addItem(id, count = 1){
+  const def = ITEMS[id];
+  if(!def) return;
+  let stack = state.inventory.find(s => s.id === id);
+  if(!stack){
+    if(state.inventory.length >= 20) return;
+    stack = { id, name:def.name, desc:def.desc, icon:def.icon, count:0 };
+    state.inventory.push(stack);
+  }
+  stack.count += count;
+}
+function hasItem(id){ return state.inventory.some(s => s.id === id && s.count > 0); }
+function removeItem(id, count = 1){
+  const s = state.inventory.find(x => x.id === id);
+  if(!s) return;
+  s.count -= count;
+  if(s.count <= 0) state.inventory = state.inventory.filter(x => x !== s);
+}
+function useItem(id){
+  if(id === 'potion'){
+    if(state.hp >= 100){ toast('You are already at full health.'); return; }
+    removeItem('potion');
+    state.hp = Math.min(100, state.hp + 30);
+    AudioSys.coin();
+    toast('+30 Health');
+  }
+}
+
+/* ============================================================ *
+ *  Quests
+ * ============================================================ */
+function currentActiveQuest(){
+  for(const id of ORDER) if(state.quests[id].status === 'active') return id;
+  return null;
+}
+function startQuest(id){
+  const q = state.quests[id];
+  if(!q || q.status !== 'locked') return;
+  q.status = 'active';
+  toast('New Quest: ' + QUEST_DEFS[id].title);
+}
+function completeObjective(qid, oid, amt = 1){
+  const q = state.quests[qid];
+  if(!q || q.status !== 'active') return;
+  const def = QUEST_DEFS[qid];
+  const obj = def.objectives.find(o => o.id === oid);
+  q.progress[oid] = Math.min(obj.target, q.progress[oid] + amt);
+  if(def.objectives.every(o => q.progress[o.id] >= o.target)) completeQuest(qid);
+}
+function completeQuest(id){
+  const q = state.quests[id];
+  if(!q || q.status !== 'active') return;
+  q.status = 'completed';
+  const r = QUEST_DEFS[id].reward;
+  if(r.favor) state.favor += r.favor;
+  (r.items || []).forEach(it => addItem(it));
+  AudioSys.fanfare();
+  const bits = [];
+  if(r.favor) bits.push('+' + r.favor + ' Favor Tokens');
+  if(r.items && r.items.length) bits.push(r.items.map(i => ITEMS[i].name).join(', '));
+  toast('Quest Complete!' + (bits.length ? '  ' + bits.join(' · ') : ''));
+  const next = ORDER[ORDER.indexOf(id) + 1];
+  if(next) startQuest(next);
+  else toast('You have cleared all of Hearthwood!');
+  if(state.mode === 'QUEST_LOG') renderQuestLog();
+}
+
+/* ============================================================ *
+ *  Dialogue
+ * ============================================================ */
+const NPC_DIALOGUE = {
+  bron(){
+    const q = state.quests.gatherHerbs;
+    if(q.status === 'active')
+      return { npc:'Bron the Blacksmith', color:'#8b5a2b', steps:[
+        { text:'Aye, {playerName}! Winter is coming and my tinctures are running thin.' },
+        { text:'I will pay in favor tokens. Gather 5 wild herbs from the patch to the south-east.',
+          choices:[ { label:"I'll gather them." }, { label:'Perhaps later.' } ] }
+      ]};
+    if(q.status === 'completed')
+      return { npc:'Bron the Blacksmith', color:'#8b5a2b', steps:[
+        { text:"Good work, {playerName}! The herbs are already steeping. You've a friend in me." }
+      ]};
+    return { npc:'Bron the Blacksmith', color:'#8b5a2b', steps:[
+      { text:"I'm Bron. I forge the village's blades and keep the hearth burning." },
+      { text:"We're short on wild herbs. Gather 5 for me and I'll show my thanks.",
+        choices:[ { label:"I'll gather them.", action:() => startQuest('gatherHerbs') }, { label:'Not today.' } ] }
+    ]};
+  },
+  mara(){
+    const q = state.quests.deliverMessage;
+    if(q.status === 'active')
+      return { npc:'Mara the Innkeeper', color:'#6b4c9a', steps:[
+        { text:"{playerName}, you're back! The market steward left word — he's owed a message I cannot carry myself." },
+        { text:"I cannot leave the inn, dear. Will you deliver my words to him?",
+          choices:[ { label:"I'll deliver it.", action:() => completeObjective('deliverMessage','talk',1) }, { label:"I'm busy, Mara." } ] }
+      ]};
+    return { npc:'Mara the Innkeeper', color:'#6b4c9a', steps:[
+      { text:"Welcome to the Hearthwood Inn, {playerName}. The mead is on the house tonight." }
+    ]};
+  }
+};
+
+function openDialogue(npcId){
+  dialogue = Object.assign({}, NPC_DIALOGUE[npcId](), { idx:0 });
+  setState('DIALOGUE');
+}
+function renderDialogue(){
+  if(!dialogue) return;
+  el.portrait.innerHTML = portraitSVG(dialogue.color);
+  el.speaker.textContent = dialogue.npc;
+  const step = dialogue.steps[dialogue.idx];
+  const isLast = dialogue.idx === dialogue.steps.length - 1;
+  el.dlgText.textContent = step.text.replace(/\{playerName\}/g, state.playerName);
+  el.choices.innerHTML = '';
+  if(isLast && step.choices){
+    step.choices.forEach((c, i) => {
+      const b = document.createElement('button');
+      b.className = 'choice';
+      b.innerHTML = '<span class="num">' + (i+1) + '</span><span>' + c.label + '</span>';
+      b.addEventListener('click', () => chooseDialogue(i));
+      el.choices.appendChild(b);
+    });
+  }
+  el.dlgHint.textContent =
+    (isLast && step.choices) ? 'Choose an option (1–4) or press Esc to walk away'
+      : (isLast ? 'Press Space to close' : 'Press Space to continue');
+}
+function advanceDialogue(){
+  if(!dialogue) return;
+  if(dialogue.idx < dialogue.steps.length - 1){ dialogue.idx++; renderDialogue(); }
+  else setState('EXPLORING');
+}
+function chooseDialogue(i){
+  if(!dialogue) return;
+  const c = dialogue.steps[dialogue.idx].choices && dialogue.steps[dialogue.idx].choices[i];
+  if(c && c.action) c.action();
+  setState('EXPLORING');
+}
+
+/* ============================================================ *
+ *  Interaction
+ * ============================================================ */
+function nearestInteract(){
+  const p = state.player;
+  let best = null, bd = RANGE;
+  const consider = (type, entity, d) => { if(d < bd){ bd = d; best = { type, entity }; } };
+  ENTITIES.npcs.forEach(n => consider('npc', n, Math.hypot(n.x - p.x, n.y - p.y)));
+  ENTITIES.herbs.forEach(h => { if(state.gotHerbs.includes(h.id)) return; consider('herb', h, Math.hypot(h.x - p.x, h.y - p.y)); });
+  ENTITIES.wolves.forEach(w => { if(state.gotWolves.includes(w.id)) return; consider('wolf', w, Math.hypot(w.x - p.x, w.y - p.y)); });
+  return best;
+}
+function promptFor(n){
+  if(n.type === 'npc') return 'Press E to talk to ' + n.entity.name;
+  if(n.type === 'herb') return 'Press E to collect a wild herb';
+  return 'Press E to ' + (hasItem('sword') ? 'slay' : 'fight') + ' the wolf';
+}
+function faint(){
+  state.hp = 100;
+  state.player.x = 400; state.player.y = 300; state.player.tx = null; state.player.ty = null;
+  toast('You fainted and were carried back to the tavern.');
+}
+function interact(){
+  const n = nearestInteract();
+  if(!n) return;
+  if(n.type === 'npc'){ openDialogue(n.entity.id); return; }
+  if(n.type === 'herb'){
+    state.gotHerbs.push(n.entity.id);
+    addItem('herb');
+    AudioSys.coin();
+    toast('+1 Herb');
+    completeObjective('gatherHerbs','herbs',1);
+    return;
+  }
+  if(n.type === 'wolf'){
+    state.gotWolves.push(n.entity.id);
+    if(hasItem('sword')){ AudioSys.coin(); toast('Wolf slain!'); }
+    else {
+      state.hp = Math.max(0, state.hp - 15);
+      AudioSys.hurt();
+      toast('The wolf bites! -15 HP');
+      if(state.hp <= 0) faint();
+    }
+    completeObjective('banditProblem','wolves',1);
+  }
+}
+
+/* ============================================================ *
+ *  Save / Load
+ * ============================================================ */
+function save(){
+  const data = {
+    version:1, hp:state.hp, favor:state.favor, playerName:state.playerName, muted:state.muted,
+    player:{ x:state.player.x, y:state.player.y, tx:state.player.tx, ty:state.player.ty },
+    quests:state.quests,
+    inventory:state.inventory.map(s => ({ id:s.id, count:s.count })),
+    gotHerbs:state.gotHerbs, gotWolves:state.gotWolves
+  };
+  try{ localStorage.setItem(SAVE_KEY, JSON.stringify(data)); }catch(e){}
+}
+function load(){
+  let raw = null;
+  try{ raw = localStorage.getItem(SAVE_KEY); }catch(e){}
+  if(!raw) return false;
+  try{
+    const d = JSON.parse(raw);
+    state.hp = d.hp; state.favor = d.favor;
+    state.playerName = d.playerName || 'Wanderer';
+    state.muted = !!d.muted;
+    Object.assign(state.player, d.player);
+    state.quests = d.quests;
+    state.gotHerbs = d.gotHerbs || [];
+    state.gotWolves = d.gotWolves || [];
+    state.inventory = (d.inventory || []).filter(s => ITEMS[s.id])
+      .map(s => Object.assign({}, ITEMS[s.id], { id:s.id, count:s.count }));
+    return true;
+  }catch(e){ return false; }
+}
+function renderAll(){
+  renderHUD(); renderDots();
+  if(state.mode === 'INVENTORY') renderInventory();
+  if(state.mode === 'QUEST_LOG') renderQuestLog();
+  updateMuteIcon();
+}
+
+/* ============================================================ *
+ *  Rendering
+ * ============================================================ */
+function renderHUD(){
+  el.hpfill.style.width = state.hp + '%';
+  el.hptext.textContent = state.hp + ' / 100';
+  el.favortext.textContent = state.favor;
+
+  const qid = currentActiveQuest();
+  if(qid){
+    const def = QUEST_DEFS[qid], q = state.quests[qid], obj = def.objectives[0];
+    el.quest.innerHTML = 'Quest: <b>' + def.title + '</b> — ' + q.progress[obj.id] + ' / ' + obj.target + ' ' + obj.unit;
+  } else {
+    el.quest.innerHTML = 'All quests complete. Rest easy at the tavern.';
+  }
+
+  const n = nearestInteract();
+  const txt = (state.mode === 'EXPLORING' && n) ? promptFor(n) : '';
+  el.prompt.textContent = txt;
+  el.prompt.style.opacity = txt ? '1' : '0';
+}
+function dotsMarkup(){
+  const p = state.player;
+  let s = '';
+  ENTITIES.herbs.forEach(h => { if(state.gotHerbs.includes(h.id)) return; s += '<circle cx="' + h.x + '" cy="' + h.y + '" r="6" class="dot-herb"/>'; });
+  ENTITIES.wolves.forEach(w => { if(state.gotWolves.includes(w.id)) return; s += '<circle cx="' + w.x + '" cy="' + w.y + '" r="7" class="dot-wolf"/>'; });
+  ENTITIES.npcs.forEach(n => { s += '<circle cx="' + n.x + '" cy="' + n.y + '" r="10" fill="' + n.color + '" stroke="#2b1d0e" stroke-width="2"/><circle cx="' + n.x + '" cy="' + n.y + '" r="3" fill="#f4e9d2"/>'; });
+  s += '<circle cx="' + p.x + '" cy="' + p.y + '" r="12" class="dot-player-ring"/><circle cx="' + p.x + '" cy="' + p.y + '" r="7" class="dot-player"/>';
+  return s;
+}
+function renderDots(){
+  const m = dotsMarkup();
+  worldDots.innerHTML = m;
+  miniDots.innerHTML = m;
+}
+function questCard(def, q, done){
+  const objs = def.objectives.map(o => {
+    const p = q.progress[o.id];
+    return '<li class="' + (p >= o.target ? 'done' : '') + '"><span>' + o.label + '</span><span class="obj-prog">' + p + ' / ' + o.target + '</span></li>';
+  }).join('');
+  const reward = (def.reward.favor ? def.reward.favor + ' Favor' : '') +
+    ((def.reward.items && def.reward.items.length) ? (def.reward.favor ? ' + ' : '') + def.reward.items.map(i => ITEMS[i].name).join(', ') : '');
+  return '<div class="qcard' + (done ? ' done' : '') + '">' +
+    '<div class="qtitle">' + def.title + (done ? ' ✓' : '') + '</div>' +
+    '<div class="qdesc">' + def.description + '</div>' +
+    '<ul class="objs">' + objs + '</ul>' +
+    '<div class="qreward">Reward: ' + reward + '</div>' +
+  '</div>';
+}
+function renderQuestLog(){
+  const active = [], completed = [];
+  ORDER.forEach(id => {
+    const q = state.quests[id], def = QUEST_DEFS[id];
+    if(q.status === 'active') active.push({ def, q });
+    else if(q.status === 'completed') completed.push({ def, q });
+  });
+  el.activeQ.innerHTML = active.length ? active.map(x => questCard(x.def, x.q, false)).join('') : '<p class="empty">No active quests.</p>';
+  el.completedQ.innerHTML = completed.length ? completed.map(x => questCard(x.def, x.q, true)).join('') : '<p class="empty">None yet.</p>';
+}
+function renderInventory(){
+  el.invGrid.innerHTML = '';
+  for(let i = 0; i < 20; i++){
+    const slot = document.createElement('div');
+    slot.className = 'slot';
+    const s = state.inventory[i];
+    if(s){
+      slot.dataset.id = s.id;
+      slot.innerHTML = '<span class="slot-icon">' + (ICON[s.icon] || '') + '</span>' + (s.count > 1 ? '<span class="slot-count">' + s.count + '</span>' : '');
+    }
+    el.invGrid.appendChild(slot);
+  }
+  hideTooltip();
+}
+function updateMuteIcon(){ el.muteIcon.innerHTML = state.muted ? ICON.soundOff : ICON.soundOn; }
+
+/* ---------- tooltip (inventory) ---------- */
+function showTooltip(slot, s){
+  const r = slot.getBoundingClientRect();
+  el.invTip.innerHTML = '<div class="tip-name">' + s.name + (s.count > 1 ? ' ×' + s.count : '') + '</div><div class="tip-desc">' + s.desc + '</div>';
+  el.invTip.style.left = (r.left + r.width / 2) + 'px';
+  el.invTip.style.top = (r.top - 8) + 'px';
+  el.invTip.classList.add('show');
+}
+function hideTooltip(){ el.invTip.classList.remove('show'); }
+
+/* ============================================================ *
+ *  State machine
+ * ============================================================ */
+function setState(mode){
+  state.mode = mode;
+  const inGame = mode !== 'TITLE';
+  el.title.classList.toggle('hidden', inGame);
+  el.hud.classList.toggle('hidden', !inGame);
+  el.dialogue.classList.toggle('hidden', mode !== 'DIALOGUE');
+  el.questlog.classList.toggle('hidden', mode !== 'QUEST_LOG');
+  el.inventory.classList.toggle('hidden', mode !== 'INVENTORY');
+  el.pause.classList.toggle('hidden', mode !== 'PAUSED');
+  if(mode === 'DIALOGUE') renderDialogue();
+  if(mode === 'QUEST_LOG') renderQuestLog();
+  if(mode === 'INVENTORY') renderInventory();
+  hideTooltip();
+}
+
+/* ============================================================ *
+ *  Movement
+ * ============================================================ */
+const keys = new Set();
+function updatePlayer(dt){
+  const p = state.player;
+  let vx = 0, vy = 0;
+  if(keys.has('a') || keys.has('arrowleft')) vx -= 1;
+  if(keys.has('d') || keys.has('arrowright')) vx += 1;
+  if(keys.has('w') || keys.has('arrowup')) vy -= 1;
+  if(keys.has('s') || keys.has('arrowdown')) vy += 1;
+  if(vx || vy){
+    p.tx = null; p.ty = null;
+    const l = Math.hypot(vx, vy);
+    p.x += vx / l * SPEED * dt;
+    p.y += vy / l * SPEED * dt;
+  } else if(p.tx != null){
+    const dx = p.tx - p.x, dy = p.ty - p.y, d = Math.hypot(dx, dy);
+    if(d < 4){ p.tx = null; p.ty = null; }
+    else { const step = Math.min(SPEED * dt, d); p.x += dx / d * step; p.y += dy / d * step; }
+  }
+  p.x = clamp(p.x, 18, 782);
+  p.y = clamp(p.y, 18, 582);
+}
+function svgPoint(svg, cx, cy){
+  const pt = svg.createSVGPoint();
+  pt.x = cx; pt.y = cy;
+  const m = svg.getScreenCTM();
+  if(!m) return { x:0, y:0 };
+  const p = pt.matrixTransform(m.inverse());
+  return { x:p.x, y:p.y };
+}
+
+/* ============================================================ *
+ *  Input
+ * ============================================================ */
+function handleKeyDown(k){
+  const m = state.mode;
+  if(m === 'TITLE'){
+    if(k === 'enter') beginGame(false);
+    else if(k === ' ' && document.activeElement !== el.nameInput) beginGame(false);
+    return;
+  }
+  if(m === 'EXPLORING'){
+    if(k === 'e') interact();
+    else if(k === 'tab') setState('QUEST_LOG');
+    else if(k === 'i') setState('INVENTORY');
+    else if(k === 'm') el.minimap.classList.toggle('hidden');
+    else if(k === 'escape') setState('PAUSED');
+    return;
+  }
+  if(m === 'DIALOGUE'){
+    if(k === ' ') advanceDialogue();
+    else if(k >= '1' && k <= '4') chooseDialogue(parseInt(k, 10) - 1);
+    else if(k === 'escape') setState('EXPLORING');
+    return;
+  }
+  if(m === 'QUEST_LOG'){ if(k === 'escape' || k === 'tab') setState('EXPLORING'); return; }
+  if(m === 'INVENTORY'){ if(k === 'escape' || k === 'i') setState('EXPLORING'); return; }
+  if(m === 'PAUSED'){ if(k === 'escape') setState('EXPLORING'); }
+}
+
+window.addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  const inInput = document.activeElement === el.nameInput;
+  if(!inInput && [' ', 'tab', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) e.preventDefault();
+  handleKeyDown(k);
+  if(!e.repeat && !inInput && ['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].includes(k)) keys.add(k);
+});
+window.addEventListener('keyup', e => keys.delete(e.key.toLowerCase()));
+window.addEventListener('blur', () => keys.clear());
+
+el.worldmap.addEventListener('click', e => {
+  if(state.mode !== 'EXPLORING') return;
+  const p = svgPoint(el.worldmap, e.clientX, e.clientY);
+  state.player.tx = clamp(p.x, 18, 782);
+  state.player.ty = clamp(p.y, 18, 582);
+});
+
+el.muteBtn.addEventListener('click', () => {
+  state.muted = !state.muted;
+  updateMuteIcon();
+  save();
+});
+
+el.pauseMenu.addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if(!b) return;
+  const a = b.dataset.action;
+  if(a === 'resume') setState('EXPLORING');
+  else if(a === 'save'){ save(); toast('Game saved.'); }
+  else if(a === 'load'){ if(load()){ renderAll(); toast('Game loaded.'); } else toast('No save found.'); }
+  else if(a === 'quit'){ toast('This is a browser preview — there is no real quit.'); }
+});
+
+el.invGrid.addEventListener('mouseover', e => {
+  const slot = e.target.closest('.slot');
+  if(!slot) return;
+  if(!slot.dataset.id){ hideTooltip(); return; }
+  const s = state.inventory.find(x => x.id === slot.dataset.id);
+  if(s) showTooltip(slot, s);
+});
+el.invGrid.addEventListener('mouseout', e => { if(e.target.closest('.slot')) hideTooltip(); });
+el.invGrid.addEventListener('click', e => {
+  const slot = e.target.closest('.slot');
+  if(!slot || !slot.dataset.id) return;
+  useItem(slot.dataset.id);
+  renderInventory();
+  renderHUD();
+});
+
+el.beginBtn.addEventListener('click', () => beginGame(false));
+el.newBtn.addEventListener('click', () => beginGame(true));
+
+/* ============================================================ *
+ *  Flow
+ * ============================================================ */
+function beginGame(fresh){
+  if(fresh){
+    const name = (el.nameInput.value || '').trim().slice(0,16) || 'Wanderer';
+    Object.assign(state, defaultState());
+    state.playerName = name;
+  } else {
+    const name = (el.nameInput.value || '').trim();
+    if(name) state.playerName = name;
+  }
+  el.nameInput.blur();
+  AudioSys.ensure();
+  updateMuteIcon();
+  setState('EXPLORING');
+  toast('Welcome to Hearthwood, ' + state.playerName + '!');
+  save();
+}
+
+/* ============================================================ *
+ *  Leaves
+ * ============================================================ */
+function spawnLeaf(){
+  if(document.hidden) return;
+  const leaf = document.createElement('span');
+  leaf.className = 'leaf';
+  const colors = ['#8b2c1a','#b8860b','#c0562b','#a5641f','#7a4a22'];
+  leaf.style.left = Math.random() * 100 + 'vw';
+  leaf.style.background = colors[(Math.random() * colors.length) | 0];
+  const size = 12 + Math.random() * 14;
+  leaf.style.width = size + 'px';
+  leaf.style.height = size + 'px';
+  const dur = 7 + Math.random() * 8;
+  leaf.style.animationDuration = dur + 's';
+  leaf.style.setProperty('--sway', (Math.random() * 120 - 60) + 'px');
+  leaf.style.setProperty('--spin', (Math.random() < 0.5 ? -1 : 1) * (360 + Math.random() * 360) + 'deg');
+  el.leaves.appendChild(leaf);
+  setTimeout(() => leaf.remove(), dur * 1000 + 300);
+}
+
+/* ============================================================ *
+ *  Main loop
+ * ============================================================ */
+let last = 0;
+function loop(t){
+  const dt = Math.min(0.05, (t - last) / 1000 || 0);
+  last = t;
+  if(state.mode === 'EXPLORING') updatePlayer(dt);
+  renderHUD();
+  renderDots();
+  requestAnimationFrame(loop);
+}
+
+/* ============================================================ *
+ *  Boot
+ * ============================================================ */
+function boot(){
+  const had = load();
+  el.nameInput.value = state.playerName;
+  if(had){
+    el.beginBtn.textContent = 'Continue Adventure';
+    el.newBtn.classList.remove('hidden');
+  } else {
+    el.beginBtn.textContent = 'Begin Adventure';
+  }
+  updateMuteIcon();
+  setState('TITLE');
+  renderHUD();
+  renderDots();
+  requestAnimationFrame(loop);
+  setInterval(() => { if(state.mode === 'EXPLORING') save(); }, 30000);
+  setInterval(spawnLeaf, 900);
+}
+boot();
+</script>
+</body>
+</html>
