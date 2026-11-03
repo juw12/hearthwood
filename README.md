@@ -1,4 +1,45 @@
-# Hearthwood
+<!-- HERO:START -->
+<p align="center">
+  <a href="https://github.com/juw12/hearthwood"><img src="docs/media/banner.jpg" alt="Hearthwood: A medieval low-poly village to explore." width="100%"></a>
+</p>
+
+<p align="center">
+  <b>A medieval low-poly village to explore.</b><br>
+  A third-person action-adventure prototype with dialogue, quests, inventory and NPC AI.
+</p>
+
+<p align="center">
+  <a href="#highlights">Highlights</a> ·
+  <a href="https://github.com/juw12">More by juw12</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/juw12/hearthwood"><img src="https://img.shields.io/github/last-commit/juw12/hearthwood?label=updated&color=b45309" alt="Last updated"></a>
+  <img src="https://img.shields.io/badge/Unity_6-24292f" alt="Unity 6">
+  <img src="https://img.shields.io/badge/URP-24292f" alt="URP">
+  <img src="https://img.shields.io/badge/HTML_preview-24292f" alt="HTML preview">
+</p>
+
+<a id="highlights"></a>
+<table>
+  <tr>
+    <td width="33%" valign="top">
+      <b>A living village</b><br>
+      NPCs with daily routines, dialogue and quests.
+    </td>
+    <td width="33%" valign="top">
+      <b>Favor economy</b><br>
+      A favor-token economy and an inventory.
+    </td>
+    <td width="33%" valign="top">
+      <b>Runs in the browser</b><br>
+      A self-contained HTML preview, built on Unity 6 + URP.
+    </td>
+  </tr>
+</table>
+<!-- HERO:END -->
+
+## About
 
 A medieval low-poly village prototype built on **Unity 6** + **URP** + **Input System**,
 shipping as cross-platform PC + WebGL with a self-contained HTML preview that runs without
