@@ -1,0 +1,22 @@
+{
+  "name": "Hearthwood",
+  "short_name": "Hearthwood",
+  "description": "A medieval village prototype you can walk around in",
+  "start_url": "preview.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4e9d2",
+  "theme_color": "#8b2c1a",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
