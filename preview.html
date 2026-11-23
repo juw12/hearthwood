@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Hearthwood — A Medieval Village Prototype</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Hearthwood">
+<meta name="theme-color" content="#f4e9d2">
 <style>
   :root{
     --parchment:#f4e9d2;
@@ -270,6 +277,45 @@
   .title-controls{ margin-top:34px; font-size:13px; color:#6b5334; line-height:1.7; letter-spacing:0.5px; }
   .title-controls b{ color:var(--accent); }
 
+  /* ---------- touch: the keys as buttons, so the preview plays on a phone ---------- */
+  #touchbar{ display:none; }
+  .touch-only{ display:none; }
+  @media (pointer:coarse), (max-width:640px){
+    #touchbar{
+      position:absolute; left:0; right:0; bottom:0; display:flex; gap:8px; justify-content:center;
+      padding:8px 10px calc(10px + env(safe-area-inset-bottom)); pointer-events:auto;
+    }
+    #touchbar button{
+      flex:1 1 0; max-width:120px; min-height:48px; font-family:inherit; font-size:15px; font-weight:bold;
+      color:var(--ink); background:rgba(244,233,210,0.94); border:2px solid var(--ink); border-radius:10px;
+      box-shadow:0 3px 0 var(--wood); touch-action:manipulation;
+    }
+    #touchbar button:active{ transform:translateY(2px); box-shadow:0 1px 0 var(--wood); }
+    #touchbar button[data-key="e"]{ color:var(--parchment); background:var(--accent); }
+    .hud-bottom{ bottom:calc(78px + env(safe-area-inset-bottom)); width:94vw; }
+    .prompt, .quest{ white-space:normal; text-align:center; max-width:94vw; }
+    .keys-only{ display:none; }
+    .touch-only{ display:block; }
+    #nameInput{ min-height:48px; }
+    #newBtn{ min-height:48px; padding:2px 14px; }
+    .choice{ min-height:48px; }
+    #muteBtn{ width:48px; height:48px; }
+    .pause-menu button{ min-height:48px; }
+  }
+  @media (max-width:640px){
+    #title h1{ font-size:clamp(28px,9.6vw,96px); letter-spacing:2px; }
+    .title-inner{ width:100vw; padding:16px; }
+    .tagline{ font-size:17px; }
+    .title-controls{ margin:20px 16px 0; text-align:center; }
+    #scene{ padding:6px; }
+    .hpbar{ width:132px; }
+    .minimap{ width:104px; top:74px; right:10px; }
+    .minimap .mm-title{ font-size:8px; letter-spacing:1px; }
+    .hud-topleft{ left:12px; } .hud-topright{ right:10px; }
+    .dialogue-panel{ padding:20px 18px; }
+    .wide-panel{ padding:20px 16px; }
+  }
+
   /* ---------- toast ---------- */
   #toast{
     position:fixed; top:78px; left:50%; transform:translateX(-50%) translateY(-14px);
@@ -315,6 +361,13 @@
       <div id="prompt" class="prompt"></div>
       <div id="quest" class="quest"></div>
     </div>
+    <div id="touchbar" aria-label="Controls">
+      <button data-key="e">Act</button>
+      <button data-key="tab">Quests</button>
+      <button data-key="i">Bag</button>
+      <button data-key="m">Map</button>
+      <button data-key="escape">Pause</button>
+    </div>
   </div>
 
   <div id="dialogue" class="overlay dialogue hidden">
@@ -336,7 +389,7 @@
       <div id="activeQ"></div>
       <div class="qlist-title">Completed Quests</div>
       <div id="completedQ"></div>
-      <div class="panel-hint">Press Tab or Esc to close</div>
+      <div class="panel-hint"><span class="keys-only">Press Tab or Esc to close</span><span class="touch-only">Tap outside to close</span></div>
     </div>
   </div>
 
@@ -344,7 +397,7 @@
     <div class="panel inv-panel">
       <h2>Inventory</h2>
       <div id="invGrid"></div>
-      <div class="panel-hint">Click a potion to drink it &middot; Press I or Esc to close</div>
+      <div class="panel-hint"><span class="keys-only">Click a potion to drink it &middot; Press I or Esc to close</span><span class="touch-only">Tap a potion to drink it &middot; tap outside to close</span></div>
     </div>
   </div>
 
@@ -357,7 +410,7 @@
         <button data-action="load">Load</button>
         <button data-action="quit">Quit</button>
       </div>
-      <div class="panel-hint">Press Esc to resume</div>
+      <div class="panel-hint keys-only">Press Esc to resume</div>
     </div>
   </div>
 
@@ -372,7 +425,11 @@
       <button id="beginBtn">Begin Adventure</button>
       <button id="newBtn" class="hidden">Start a New Game</button>
     </div>
-    <div class="title-controls">
+    <div class="title-controls touch-only">
+      <b>Tap the map</b> to walk there &middot; <b>Act</b> to talk, gather and fight &middot;
+      tap a speech to go on &middot; tap outside a panel to close it
+    </div>
+    <div class="title-controls keys-only">
       <b>WASD / Arrows</b> move &middot; <b>E</b> interact &middot; <b>Space</b> dialogue &middot;
       <b>1&ndash;4</b> choices &middot; <b>Tab</b> quests &middot; <b>I</b> inventory &middot;
       <b>M</b> map &middot; <b>Esc</b> pause
@@ -548,6 +605,8 @@ document.querySelector('#minimapsvg .pois').innerHTML = POI_SVG;
 el.emblem.innerHTML = EMBLEM;
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+/* a finger instead of a keyboard: the hints name taps, and the touch bar stands in for the keys */
+const TOUCH = matchMedia('(pointer:coarse), (max-width:640px)').matches;
 
 /* ============================================================ *
  *  Audio (WebAudio, synthesized)
@@ -718,9 +777,10 @@ function renderDialogue(){
       el.choices.appendChild(b);
     });
   }
-  el.dlgHint.textContent =
-    (isLast && step.choices) ? 'Choose an option (1–4) or press Esc to walk away'
-      : (isLast ? 'Press Space to close' : 'Press Space to continue');
+  el.dlgHint.textContent = TOUCH
+    ? ((isLast && step.choices) ? 'Choose an option, or tap outside to walk away' : (isLast ? 'Tap to close' : 'Tap to continue'))
+    : ((isLast && step.choices) ? 'Choose an option (1–4) or press Esc to walk away'
+      : (isLast ? 'Press Space to close' : 'Press Space to continue'));
 }
 function advanceDialogue(){
   if(!dialogue) return;
@@ -837,7 +897,7 @@ function renderHUD(){
 
   const n = nearestInteract();
   const txt = (state.mode === 'EXPLORING' && n) ? promptFor(n) : '';
-  el.prompt.textContent = txt;
+  el.prompt.textContent = TOUCH ? txt.replace('Press E to', 'Tap Act to') : txt;
   el.prompt.style.opacity = txt ? '1' : '0';
 }
 function dotsMarkup(){
@@ -1000,6 +1060,20 @@ el.worldmap.addEventListener('click', e => {
   state.player.tx = clamp(p.x, 18, 782);
   state.player.ty = clamp(p.y, 18, 582);
 });
+
+/* touch: each button is one key; a tap on a speech goes on; a tap beside a panel closes it */
+document.getElementById('touchbar').addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if(b) handleKeyDown(b.dataset.key);
+});
+el.dialogue.addEventListener('click', e => {
+  if(e.target.closest('.choice')) return;
+  if(e.target.closest('.panel')){ if(!el.choices.children.length) handleKeyDown(' '); }
+  else handleKeyDown('escape');
+});
+[el.questlog, el.inventory, el.pause].forEach(overlay => overlay.addEventListener('click', e => {
+  if(!e.target.closest('.panel')) handleKeyDown('escape');
+}));
 
 el.muteBtn.addEventListener('click', () => {
   state.muted = !state.muted;
