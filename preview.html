@@ -985,14 +985,14 @@ function setState(mode){
 /* ============================================================ *
  *  Movement
  * ============================================================ */
-const keys = new Set();
+const heldKeys = new Set();
 function updatePlayer(dt){
   const p = state.player;
   let vx = 0, vy = 0;
-  if(keys.has('a') || keys.has('arrowleft')) vx -= 1;
-  if(keys.has('d') || keys.has('arrowright')) vx += 1;
-  if(keys.has('w') || keys.has('arrowup')) vy -= 1;
-  if(keys.has('s') || keys.has('arrowdown')) vy += 1;
+  if(heldKeys.has('a') || heldKeys.has('arrowleft')) vx -= 1;
+  if(heldKeys.has('d') || heldKeys.has('arrowright')) vx += 1;
+  if(heldKeys.has('w') || heldKeys.has('arrowup')) vy -= 1;
+  if(heldKeys.has('s') || heldKeys.has('arrowdown')) vy += 1;
   if(vx || vy){
     p.tx = null; p.ty = null;
     const l = Math.hypot(vx, vy);
@@ -1049,10 +1049,10 @@ window.addEventListener('keydown', e => {
   const inInput = document.activeElement === el.nameInput;
   if(!inInput && [' ', 'tab', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) e.preventDefault();
   handleKeyDown(k);
-  if(!e.repeat && !inInput && ['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].includes(k)) keys.add(k);
+  if(!e.repeat && !inInput && ['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].includes(k)) heldKeys.add(k);
 });
-window.addEventListener('keyup', e => keys.delete(e.key.toLowerCase()));
-window.addEventListener('blur', () => keys.clear());
+window.addEventListener('keyup', e => heldKeys.delete(e.key.toLowerCase()));
+window.addEventListener('blur', () => heldKeys.clear());
 
 el.worldmap.addEventListener('click', e => {
   if(state.mode !== 'EXPLORING') return;
